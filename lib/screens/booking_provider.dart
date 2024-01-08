@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -5,6 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'booking_details.dart';
 
 class BookingProvider with ChangeNotifier {
+  FirebaseFirestore firestore = FirebaseFirestore.instance;
+  String collectionPath = 'bookings';
+
   DateTime? selectedDate;
   TimeOfDay? selectedTime;
   Set<String> bookedSlots = {};
@@ -28,7 +32,9 @@ class BookingProvider with ChangeNotifier {
   void setDate(DateTime date) {
     selectedDate = date;
     notifyListeners();
+    updateFirebaseData();
   }
+
 
   void setTime(TimeOfDay time, bool isBooked) {
     final formattedTime = "${time.hour}:${time.minute}";
@@ -43,10 +49,9 @@ class BookingProvider with ChangeNotifier {
       bookedSlots.remove(formattedDateTime);
       isTimeSlotAccepted = false;
     }
-
-
     selectedTime = time;
     saveBookedSlots();
+    updateFirebaseData();
     notifyListeners();
   }
 
@@ -56,6 +61,17 @@ class BookingProvider with ChangeNotifier {
     selectedDate != null ? "${selectedDate!.year}-${selectedDate!.month}-${selectedDate!.day}-$formattedTime" : "";
     return bookedSlots.contains(formattedDateTime);
   }
+
+
+  Future<void> updateFirebaseData() async {
+    if (selectedDate != null) {
+      await firestore.collection(collectionPath).doc(selectedDate.toString()).set({
+        'date': selectedDate,
+        'bookedSlots': bookedSlots.toList(),
+      });
+    }
+  }
+
 
 }
 
@@ -147,8 +163,7 @@ class BookingWidget extends StatelessWidget {
                                 color: bookingProvider.selectedDate != null &&
                                     bookingProvider.bookedSlots
                                         .contains(formattedDateTime)
-                                    ? Colors
-                                    .grey
+                                    ? Colors.grey
                                     : Colors.lightGreen,
                                 borderRadius: BorderRadius.circular(8.0),
                               ),
@@ -203,9 +218,16 @@ class BookingWidget extends StatelessWidget {
                   );
                 }
               },
+              style: ElevatedButton.styleFrom(
+                primary: Colors.cyan,
+                padding: EdgeInsets.all(15.0),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10.0),
+                ),
+              ),
               child: Text(
                 "BOOK APPOINTMENT",
-                style: TextStyle(color: Colors.black, fontSize: 15),
+                style: TextStyle(color: Colors.white, fontSize: 15),
               ),
             ),
           ],
